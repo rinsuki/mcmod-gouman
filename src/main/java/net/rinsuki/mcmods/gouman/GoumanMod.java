@@ -6,8 +6,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import com.mojang.blaze3d.platform.Window;
 import com.mojang.logging.LogUtils;
 
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import net.minecraft.client.Minecraft;
@@ -42,6 +44,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.minecraftforge.network.NetworkConstants;
 
 @Mod("gouman")
@@ -75,6 +78,26 @@ public class GoumanMod {
             } else {
                 mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効な引数です！"));
             }
+            e.setCanceled(true);
+        } else if (e.getOriginalMessage().startsWith("//resolution ")) {
+            String[] args = e.getOriginalMessage().split(" ");
+            if (args.length != 3) {
+                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効な引数です！"));
+                return;
+            }
+            var window = mc.getWindow();
+            if (!window.isFullscreen()) {
+                int[] x = new int[1];
+                int[] y = new int[1];
+                GLFW.glfwGetWindowPos(window.getWindow(), x, y);
+                LOGGER.info("x: {}, y: {}", x[0], y[0]);
+                // windowedX/Y
+                ObfuscationReflectionHelper.setPrivateValue(Window.class, window, x[0], "f_85352_");
+                ObfuscationReflectionHelper.setPrivateValue(Window.class, window, y[0], "f_85353_");
+            }
+            int width = Integer.parseInt(args[1]);
+            int height = Integer.parseInt(args[2]);
+            window.setWindowed(width, height);
             e.setCanceled(true);
         }
     }

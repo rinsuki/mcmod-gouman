@@ -298,14 +298,19 @@ public class GoumanMod {
     private static Integer nextAutoSleep = 0;
 
     private static void autoSleep() {
-        if (!BedBlock.canSetSpawn(mc.level)) return;
-        var playerPos = mc.player.getOnPos();
-        if (mc.player.isSleeping()) return;
-
         if (nextAutoSleep > 0) {
             nextAutoSleep--;
             return;
         }
+
+        // 一秒に一回くらいのチェックでいいんじゃないでしょうか
+        nextAutoSleep = 20;
+
+        if (!BedBlock.canSetSpawn(mc.player.level)) return;
+        var playerPos = mc.player.getOnPos();
+        if (mc.player.isSleeping()) return;
+        mc.player.level.updateSkyBrightness();
+        if (mc.player.level.getSkyDarken() < 4) return;
 
         for (int x = playerPos.getX() - 3; x <= playerPos.getX() + 3; x++) {
             for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
@@ -319,7 +324,6 @@ public class GoumanMod {
                         InteractionHand.MAIN_HAND,
                         new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false)
                     );
-                    nextAutoSleep = 20;
                     return;
                 }
             }

@@ -27,6 +27,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientChatEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -67,6 +68,14 @@ public class GoumanMod {
                 mc.gui.getChat().addMessage(new TextComponent("無効な引数です！"));
             }
             e.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void debugScreenAddInfo(RenderGameOverlayEvent.Text e) {
+        if (enabled) {
+            e.getLeft().add("");
+            e.getLeft().add("傲慢MOD: Enabled");
         }
     }
 

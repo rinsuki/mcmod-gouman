@@ -1,6 +1,10 @@
 package net.rinsuki.mcmods.gouman;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 import com.mojang.logging.LogUtils;
 
@@ -15,15 +19,19 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.monster.ZombifiedPiglin;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.BeetrootBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CarrotBlock;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientChatEvent;
@@ -88,6 +96,8 @@ public class GoumanMod {
         seedUekae();
         seedUekae_beetroots();
         seedUekae_carrots();
+        autoEdukeToCow();
+        autoSleep();
     }
 
     private static void attackToZombie() {
@@ -208,6 +218,86 @@ public class GoumanMod {
                     if (!mc.gameMode.startDestroyBlock(pos, Direction.UP)) return;
                     breakedWheels.add(pos);
                     break;
+                }
+            }
+        }
+    }
+
+    private static boolean shouldResetEdukedCow = false;
+    private static HashMap<String, Integer> edukedCows = new HashMap<>();
+
+    private static void autoEdukeToCow() {
+        var mainHandItemStack = mc.player.getMainHandItem();
+        if (mainHandItemStack == null) return;
+        if (mainHandItemStack.getItem() != Items.WHEAT) {
+            shouldResetEdukedCow = true;
+            return;
+        };
+
+        if (shouldResetEdukedCow) {
+            shouldResetEdukedCow = false;
+            edukedCows.clear();
+        }
+
+        var removeList = new ArrayList<>();
+
+        for (var edukedCow : edukedCows.keySet()) {
+            var v = edukedCows.get(edukedCow) - 1;
+            if (v <= 0) {
+                removeList.add(edukedCow);
+            } else {
+                edukedCows.put(edukedCow, v);
+            }
+        }
+
+        for (var key : removeList) {
+            edukedCows.remove(key);
+        }
+        
+        var entities = mc.player.level.getEntitiesOfClass(
+            Cow.class,
+            mc.player.getBoundingBox().inflate(4),
+            (entity) -> {
+                if (entity.isBaby()) return false;
+                if (!entity.canFallInLove()) return false;
+                return true;
+            }
+        );
+        if (entities.size() == 0) return;
+        for (Cow entity : entities) {
+            if (edukedCows.containsKey(entity.getStringUUID())) continue;
+            mc.gameMode.interact(mc.player, entity, InteractionHand.MAIN_HAND);
+            edukedCows.put(entity.getStringUUID(), 600);
+            break;
+        }
+    }
+
+    private static Integer nextAutoSleep = 0;
+
+    private static void autoSleep() {
+        if (!BedBlock.canSetSpawn(mc.level)) return;
+        var playerPos = mc.player.getOnPos();
+        if (mc.player.isSleeping()) return;
+
+        if (nextAutoSleep > 0) {
+            nextAutoSleep--;
+            return;
+        }
+
+        for (int x = playerPos.getX() - 3; x <= playerPos.getX() + 3; x++) {
+            for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
+                for (int z = playerPos.getZ() - 3; z <= playerPos.getZ() + 3; z++) {
+                    var pos = new BlockPos(x, y, z);
+                    var blockState = mc.player.level.getBlockState(pos);
+                    if (!(blockState.getBlock() instanceof BedBlock)) continue;
+                    var result = mc.gameMode.useItemOn(
+                        mc.player,
+                        (ClientLevel) mc.player.level,
+                        InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false)
+                    );
+                    nextAutoSleep = 20;
+                    return;
                 }
             }
         }

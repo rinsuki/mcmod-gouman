@@ -51,7 +51,7 @@ public class GoumanMod {
     public static void joined(WorldEvent.Load e) {
         enabled = false;
         LOGGER.info("hoge");
-        mc.gui.getChat().addMessage(new TextComponent("傲慢MODが読み込まれました！\n//gouman on で有効にできます"));
+        mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 読み込まれました！ //gouman on で有効にできます"));
     }
 
     @SubscribeEvent
@@ -60,12 +60,12 @@ public class GoumanMod {
             String arg = e.getOriginalMessage().substring("//gouman ".length());
             if (arg.equals("on")) {
                 enabled = true;
-                mc.gui.getChat().addMessage(new TextComponent("傲慢MODが有効になりました！"));
+                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 有効になりました！"));
             } else if (arg.equals("off")) {
                 enabled = false;
-                mc.gui.getChat().addMessage(new TextComponent("傲慢MODが無効になりました！"));
+                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効になりました！"));
             } else {
-                mc.gui.getChat().addMessage(new TextComponent("無効な引数です！"));
+                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効な引数です！"));
             }
             e.setCanceled(true);
         }

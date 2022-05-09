@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.logging.LogUtils;
 
@@ -26,6 +28,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.monster.ZombifiedPiglin;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.BeetrootBlock;
@@ -147,17 +150,26 @@ public class GoumanMod {
 
     private static ArrayList<BlockPos> breakedWheels = new ArrayList<>();
 
-    private static void seedUekae() {
+    private static @Nullable InteractionHand findSpecifiedItemFromBothHand(Item item) {
         var mainHandItemStack = mc.player.getMainHandItem();
-        if (mainHandItemStack == null) return;
-        if (mainHandItemStack.getItem() != Items.WHEAT_SEEDS) return;
+        if (mainHandItemStack != null && mainHandItemStack.getItem() == item) return InteractionHand.MAIN_HAND;
+
+        var offHandItemStack = mc.player.getOffhandItem();
+        if (offHandItemStack != null && offHandItemStack.getItem() == item) return InteractionHand.OFF_HAND;
+
+        return null;
+    }
+
+    private static void seedUekae() {
+        var hand = findSpecifiedItemFromBothHand(Items.WHEAT_SEEDS);
+        if (hand == null) return;
         
         var playerPos = mc.player.getOnPos();
 
         for (var pos : breakedWheels) {
             var blockState = mc.player.level.getBlockState(pos);
             if (blockState != null && blockState.getBlock() != Blocks.AIR) continue;
-            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false));
+            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false));
             if (result == InteractionResult.PASS || result == InteractionResult.SUCCESS) {
                 breakedWheels.remove(pos);
             }

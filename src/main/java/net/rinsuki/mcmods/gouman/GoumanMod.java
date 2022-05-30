@@ -30,6 +30,7 @@ import net.minecraft.world.entity.monster.ZombifiedPiglin;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.BeetrootBlock;
 import net.minecraft.world.level.block.Blocks;
@@ -123,6 +124,7 @@ public class GoumanMod {
         seedUekae_beetroots();
         seedUekae_carrots();
         autoEdukeToCow();
+        autoPlaceTorch();
         autoSleep();
     }
 
@@ -169,7 +171,9 @@ public class GoumanMod {
         for (var pos : breakedWheels) {
             var blockState = mc.player.level.getBlockState(pos);
             if (blockState != null && blockState.getBlock() != Blocks.AIR) continue;
-            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false));
+            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(
+                Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false
+            ));
             if (result == InteractionResult.PASS || result == InteractionResult.SUCCESS) {
                 breakedWheels.remove(pos);
             }
@@ -305,6 +309,36 @@ public class GoumanMod {
             edukedCows.put(entity.getStringUUID(), 600);
             break;
         }
+    }
+
+    private static int autoPlaceTorchTimer = 0;
+
+    private static void autoPlaceTorch() {
+        if (autoPlaceTorchTimer > 0) {
+            autoPlaceTorchTimer--;
+            return;
+        }
+        autoPlaceTorchTimer = 5;
+
+        var hand = findSpecifiedItemFromBothHand(Items.TORCH);
+        if (hand == null) return;
+        
+        var playerPos = mc.player.blockPosition();
+
+        // check light level
+        var lightLevel = mc.player.level.getBrightness(LightLayer.BLOCK, playerPos);
+        if (lightLevel > 8) return;
+
+        // check torch can place
+        var blockState = mc.player.level.getBlockState(playerPos);
+        if (blockState.getBlock() != Blocks.AIR) return;
+        if (!mc.player.level.getFluidState(playerPos).isEmpty()) return;
+        if (!mc.player.level.getFluidState(playerPos.below()).isEmpty()) return;
+
+        // place torch
+        var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(
+            Vec3.upFromBottomCenterOf(playerPos, -0.5), Direction.UP, playerPos.below(), false
+        ));
     }
 
     private static Integer nextAutoSleep = 0;

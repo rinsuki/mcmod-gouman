@@ -24,10 +24,15 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Cow;
+import net.minecraft.world.entity.monster.Guardian;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Pillager;
+import net.minecraft.world.entity.monster.Silverfish;
+import net.minecraft.world.entity.monster.Skeleton;
+import net.minecraft.world.entity.monster.Spider;
+import net.minecraft.world.entity.monster.Witch;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.monster.ZombifiedPiglin;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.LightLayer;
@@ -119,7 +124,7 @@ public class GoumanMod {
         if (!enabled) return;
         if (e.phase != TickEvent.Phase.END) return;
         if (mc.player == null) return;
-        attackToZombie();
+        autoAttack();
         seedUekae();
         seedUekae_beetroots();
         seedUekae_carrots();
@@ -128,7 +133,7 @@ public class GoumanMod {
         autoSleep();
     }
 
-    private static void attackToZombie() {
+    private static void autoAttack() {
         var entities = mc.player.level.getEntitiesOfClass(
             Monster.class,
             mc.player.getBoundingBox().inflate(2),
@@ -138,6 +143,12 @@ public class GoumanMod {
                 if (entity.is(mc.player)) return false;
                 if (entity instanceof ZombifiedPiglin) return false;
                 if (entity instanceof Zombie) return true;
+                if (entity instanceof Skeleton) return true;
+                if (entity instanceof Spider) return true;
+                if (entity instanceof Witch) return true;
+                if (entity instanceof Guardian) return true;
+                if (entity instanceof Silverfish) return true;
+                if (entity instanceof Pillager) return true;
                 return false;
             }
         );

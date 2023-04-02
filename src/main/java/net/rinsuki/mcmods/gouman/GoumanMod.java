@@ -1,388 +1,153 @@
 package net.rinsuki.mcmods.gouman;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
-import javax.annotation.Nullable;
-
-import com.mojang.blaze3d.platform.Window;
-import com.mojang.logging.LogUtils;
-
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.Cow;
-import net.minecraft.world.entity.monster.Guardian;
-import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.entity.monster.Pillager;
-import net.minecraft.world.entity.monster.Silverfish;
-import net.minecraft.world.entity.monster.Skeleton;
-import net.minecraft.world.entity.monster.Spider;
-import net.minecraft.world.entity.monster.Witch;
-import net.minecraft.world.entity.monster.Zombie;
-import net.minecraft.world.entity.monster.ZombifiedPiglin;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.BeetrootBlock;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.CarrotBlock;
-import net.minecraft.world.level.block.CropBlock;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientChatEvent;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.world.WorldEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.IExtensionPoint;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
-import net.minecraftforge.network.NetworkConstants;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.CropBlock;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.GuardianEntity;
+import net.minecraft.entity.mob.HostileEntity;
+import net.minecraft.entity.mob.PillagerEntity;
+import net.minecraft.entity.mob.SilverfishEntity;
+import net.minecraft.entity.mob.SkeletonEntity;
+import net.minecraft.entity.mob.SpiderEntity;
+import net.minecraft.entity.mob.WitchEntity;
+import net.minecraft.entity.mob.ZombieEntity;
+import net.minecraft.entity.mob.ZombieVillagerEntity;
+import net.minecraft.entity.mob.ZombifiedPiglinEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
+import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
-@Mod("gouman")
-@Mod.EventBusSubscriber(Dist.CLIENT)
-public class GoumanMod {
-    public GoumanMod() {
-        ModLoadingContext.get().registerExtensionPoint(IExtensionPoint.DisplayTest.class, () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));
-    }
+public class GoumanMod implements ClientModInitializer {
 
-    private static final Minecraft mc = Minecraft.getInstance();
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LoggerFactory.getLogger("gouman");
     private static boolean enabled = false;
+    private static KeyBinding keyToggle;
 
-    @SubscribeEvent
-    public static void joined(WorldEvent.Load e) {
+    @Override
+    public void onInitializeClient() {
         enabled = false;
-        LOGGER.info("hoge");
-        mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 読み込まれました！ //gouman on で有効にできます"));
+        LOGGER.info("Gouman MOD is active.");
+        keyToggle = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.gouman.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "category.gouman.main"
+        ));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> this.onTick(client));
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> this.onJoin(client));
     }
 
-    @SubscribeEvent
-    public static void chatEvent(ClientChatEvent e) {
-        if (e.getOriginalMessage().startsWith("//gouman ")) {
-            String arg = e.getOriginalMessage().substring("//gouman ".length());
-            if (arg.equals("on")) {
-                enabled = true;
-                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 有効になりました！"));
-            } else if (arg.equals("off")) {
-                enabled = false;
-                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効になりました！"));
-            } else {
-                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効な引数です！"));
-            }
-            e.setCanceled(true);
-        } else if (e.getOriginalMessage().startsWith("//resolution ")) {
-            String[] args = e.getOriginalMessage().split(" ");
-            if (args.length != 3) {
-                mc.gui.getChat().addMessage(new TextComponent("[傲慢MOD] 無効な引数です！"));
-                return;
-            }
-            var window = mc.getWindow();
-            if (!window.isFullscreen()) {
-                int[] x = new int[1];
-                int[] y = new int[1];
-                GLFW.glfwGetWindowPos(window.getWindow(), x, y);
-                LOGGER.info("x: {}, y: {}", x[0], y[0]);
-                // windowedX/Y
-                ObfuscationReflectionHelper.setPrivateValue(Window.class, window, x[0], "f_85352_");
-                ObfuscationReflectionHelper.setPrivateValue(Window.class, window, y[0], "f_85353_");
-            }
-            int width = Integer.parseInt(args[1]);
-            int height = Integer.parseInt(args[2]);
-            window.setWindowed(width, height);
-            e.setCanceled(true);
+    private void onJoin(MinecraftClient client) {
+        enabled = false;
+        client.player.sendMessage(Text.of("傲慢: 読み込まれました！ Gキーで有効/無効を切り替えます。"));
+    }
+
+    private void onTick(MinecraftClient client) {
+        if (client.world == null) return;
+        if (client.player == null) return;
+        boolean enabledWasChanged = false;
+        while (keyToggle.wasPressed()) {
+            enabled = !enabled;
+            enabledWasChanged = true;
         }
-    }
-
-    @SubscribeEvent
-    public static void debugScreenAddInfo(RenderGameOverlayEvent.Text e) {
-        if (enabled) {
-            e.getLeft().add("");
-            e.getLeft().add("傲慢MOD: Enabled");
+        if (enabledWasChanged) {
+            client.player.sendMessage(Text.of(String.format("傲慢: %s", enabled ? "有効" : "無効")));
         }
-    }
-
-    @SubscribeEvent
-    public static void tick(TickEvent.ClientTickEvent e) {
         if (!enabled) return;
-        if (e.phase != TickEvent.Phase.END) return;
-        if (mc.player == null) return;
-        autoAttack();
-        seedUekae();
-        seedUekae_beetroots();
-        seedUekae_carrots();
-        autoEdukeToCow();
-        autoPlaceTorch();
-        autoSleep();
+        autoAttack(client);
+        seedUekae(client, Blocks.WHEAT, Items.WHEAT_SEEDS);
+        seedUekae(client, Blocks.BEETROOTS, Items.BEETROOT_SEEDS);
+        seedUekae(client, Blocks.CARROTS, Items.CARROT);
     }
 
-    private static void autoAttack() {
-        var entities = mc.player.level.getEntitiesOfClass(
-            Monster.class,
-            mc.player.getBoundingBox().inflate(2),
+    private static void autoAttack(MinecraftClient client) {
+        if (client.player.getAttackCooldownProgress(0f) < 1.0f) return;
+        if (client.player.isUsingItem()) return;
+
+        var entities = client.player.world.getEntitiesByClass(
+            HostileEntity.class,
+            client.player.getBoundingBox().expand(2),
             (entity) -> {
                 if (!(entity instanceof LivingEntity)) return false;
                 if (!entity.isAlive()) return false;
-                if (entity.is(mc.player)) return false;
-                if (entity instanceof ZombifiedPiglin) return false;
-                if (entity instanceof Zombie) return true;
-                if (entity instanceof Skeleton) return true;
-                if (entity instanceof Spider) return true;
-                if (entity instanceof Witch) return true;
-                if (entity instanceof Guardian) return true;
-                if (entity instanceof Silverfish) return true;
-                if (entity instanceof Pillager) return true;
+                if (!entity.isAttackable()) return false;
+                if (entity instanceof ZombifiedPiglinEntity) return false; // 敵対されないように
+                if (entity instanceof ZombieVillagerEntity) return false;
+
+                if (entity instanceof ZombieEntity) return true;
+                if (entity instanceof SkeletonEntity) return true;
+                if (entity instanceof SpiderEntity) return true;
+                if (entity instanceof WitchEntity) return true;
+                if (entity instanceof GuardianEntity) return true;
+                if (entity instanceof SilverfishEntity) return true;
+                if (entity instanceof PillagerEntity) return true;
                 return false;
             }
         );
-        for (Entity entity : entities) {
-            if (mc.player.getAttackStrengthScale(0) < 1.0F) return;
-            if (!entity.isAlive()) continue;
-            if (!entity.isAttackable()) continue;
-            mc.gameMode.attack(mc.player, entity);
+
+        for (var entity : entities) {
+            client.interactionManager.attackEntity(client.player, entity);
+            client.player.attack(entity);
             break;
         }
     }
 
-    private static ArrayList<BlockPos> breakedWheels = new ArrayList<>();
+    private static @Nullable Hand findSpecifiedItemFromBothHand(MinecraftClient client, Item item) {
+        var mainHand = client.player.getMainHandStack();
+        if (mainHand != null && mainHand.getItem() == item) return Hand.MAIN_HAND;
 
-    private static @Nullable InteractionHand findSpecifiedItemFromBothHand(Item item) {
-        var mainHandItemStack = mc.player.getMainHandItem();
-        if (mainHandItemStack != null && mainHandItemStack.getItem() == item) return InteractionHand.MAIN_HAND;
-
-        var offHandItemStack = mc.player.getOffhandItem();
-        if (offHandItemStack != null && offHandItemStack.getItem() == item) return InteractionHand.OFF_HAND;
-
+        var offHand = client.player.getOffHandStack();
+        if (offHand != null && offHand.getItem() == item) return Hand.OFF_HAND;
+        
         return null;
     }
 
-    private static void seedUekae() {
-        var hand = findSpecifiedItemFromBothHand(Items.WHEAT_SEEDS);
+    private static void seedUekae(MinecraftClient client, Block destBlock, Item seedItem) {
+        var hand = findSpecifiedItemFromBothHand(client, seedItem);
         if (hand == null) return;
+
+        @Nullable BlockPos targetedBlockPosition = null;
+
+        if (client.crosshairTarget instanceof BlockHitResult blockHitResult) {
+            targetedBlockPosition = blockHitResult.getBlockPos();
+        }
+
+        if (targetedBlockPosition == null) return;
+
+        BlockState blockState = client.world.getBlockState(targetedBlockPosition);
+        if (blockState.getBlock() != destBlock) return;
         
-        var playerPos = mc.player.getOnPos();
-
-        for (var pos : breakedWheels) {
-            var blockState = mc.player.level.getBlockState(pos);
-            if (blockState != null && blockState.getBlock() != Blocks.AIR) continue;
-            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(
-                Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false
-            ));
-            if (result == InteractionResult.PASS || result == InteractionResult.SUCCESS) {
-                breakedWheels.remove(pos);
-            }
-            LOGGER.info("RESULT >> {}", result);
-            return;
-        }
-
-        for (int x = playerPos.getX() - 1; x <= playerPos.getX() + 1; x++) {
-            for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
-                for (int z = playerPos.getZ() - 1; z <= playerPos.getZ() + 1; z++) {
-                    var pos = new BlockPos(x, y, z);
-                    var blockState = mc.player.level.getBlockState(pos);
-                    if (blockState.getBlock() != Blocks.WHEAT) continue;
-                    if (blockState.getValue(CropBlock.AGE) < 7) continue;
-                    if (!mc.gameMode.startDestroyBlock(pos, Direction.UP)) return;
-                    breakedWheels.add(pos);
-                    break;
-                }
-            }
-        }
-    }
-
-    private static void seedUekae_beetroots() {
-        var mainHandItemStack = mc.player.getMainHandItem();
-        if (mainHandItemStack == null) return;
-        if (mainHandItemStack.getItem() != Items.BEETROOT_SEEDS) return;
-        
-        var playerPos = mc.player.getOnPos();
-
-        for (var pos : breakedWheels) {
-            var blockState = mc.player.level.getBlockState(pos);
-            if (blockState != null && blockState.getBlock() != Blocks.AIR) continue;
-            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false));
-            if (result == InteractionResult.PASS || result == InteractionResult.SUCCESS) {
-                breakedWheels.remove(pos);
-            }
-            LOGGER.info("RESULT >> {}", result);
-            return;
-        }
-
-        for (int x = playerPos.getX() - 1; x <= playerPos.getX() + 1; x++) {
-            for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
-                for (int z = playerPos.getZ() - 1; z <= playerPos.getZ() + 1; z++) {
-                    var pos = new BlockPos(x, y, z);
-                    var blockState = mc.player.level.getBlockState(pos);
-                    if (blockState.getBlock() != Blocks.BEETROOTS) continue;
-                    if (blockState.getValue(BeetrootBlock.AGE) < 3) continue;
-                    if (!mc.gameMode.startDestroyBlock(pos, Direction.UP)) return;
-                    breakedWheels.add(pos);
-                    break;
-                }
-            }
-        }
-    }
-
-    private static void seedUekae_carrots() {
-        var mainHandItemStack = mc.player.getMainHandItem();
-        if (mainHandItemStack == null) return;
-        if (mainHandItemStack.getItem() != Items.CARROT) return;
-        
-        var playerPos = mc.player.getOnPos();
-
-        for (var pos : breakedWheels) {
-            var blockState = mc.player.level.getBlockState(pos);
-            if (blockState != null && blockState.getBlock() != Blocks.AIR) continue;
-            var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos.atY(pos.getY() - 1), false));
-            if (result == InteractionResult.PASS || result == InteractionResult.SUCCESS) {
-                breakedWheels.remove(pos);
-            }
-            LOGGER.info("RESULT >> {}", result);
-            return;
-        }
-
-        for (int x = playerPos.getX() - 1; x <= playerPos.getX() + 1; x++) {
-            for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
-                for (int z = playerPos.getZ() - 1; z <= playerPos.getZ() + 1; z++) {
-                    var pos = new BlockPos(x, y, z);
-                    var blockState = mc.player.level.getBlockState(pos);
-                    if (blockState.getBlock() != Blocks.CARROTS) continue;
-                    if (blockState.getValue(CarrotBlock.AGE) < CarrotBlock.MAX_AGE) continue;
-                    if (!mc.gameMode.startDestroyBlock(pos, Direction.UP)) return;
-                    breakedWheels.add(pos);
-                    break;
-                }
-            }
-        }
-    }
-
-    private static boolean shouldResetEdukedCow = false;
-    private static HashMap<String, Integer> edukedCows = new HashMap<>();
-
-    private static void autoEdukeToCow() {
-        var mainHandItemStack = mc.player.getMainHandItem();
-        if (mainHandItemStack == null) return;
-        if (mainHandItemStack.getItem() != Items.WHEAT) {
-            shouldResetEdukedCow = true;
-            return;
-        };
-
-        if (shouldResetEdukedCow) {
-            shouldResetEdukedCow = false;
-            edukedCows.clear();
-        }
-
-        var removeList = new ArrayList<>();
-
-        for (var edukedCow : edukedCows.keySet()) {
-            var v = edukedCows.get(edukedCow) - 1;
-            if (v <= 0) {
-                removeList.add(edukedCow);
-            } else {
-                edukedCows.put(edukedCow, v);
-            }
-        }
-
-        for (var key : removeList) {
-            edukedCows.remove(key);
-        }
-        
-        var entities = mc.player.level.getEntitiesOfClass(
-            Cow.class,
-            mc.player.getBoundingBox().inflate(4),
-            (entity) -> {
-                if (entity.isBaby()) return false;
-                if (!entity.canFallInLove()) return false;
-                return true;
-            }
-        );
-        if (entities.size() == 0) return;
-        for (Cow entity : entities) {
-            if (edukedCows.containsKey(entity.getStringUUID())) continue;
-            mc.gameMode.interact(mc.player, entity, InteractionHand.MAIN_HAND);
-            edukedCows.put(entity.getStringUUID(), 600);
-            break;
-        }
-    }
-
-    private static int autoPlaceTorchTimer = 0;
-
-    private static void autoPlaceTorch() {
-        if (autoPlaceTorchTimer > 0) {
-            autoPlaceTorchTimer--;
-            return;
-        }
-        autoPlaceTorchTimer = 5;
-
-        var hand = findSpecifiedItemFromBothHand(Items.TORCH);
-        if (hand == null) return;
-        
-        var playerPos = mc.player.blockPosition();
-
-        // check light level
-        var lightLevel = mc.player.level.getBrightness(LightLayer.BLOCK, playerPos);
-        if (lightLevel > 8) return;
-
-        // check torch can place
-        var blockState = mc.player.level.getBlockState(playerPos);
-        if (blockState.getBlock() != Blocks.AIR) return;
-        if (!mc.player.level.getFluidState(playerPos).isEmpty()) return;
-        if (!mc.player.level.getFluidState(playerPos.below()).isEmpty()) return;
-
-        // place torch
-        var result = mc.gameMode.useItemOn(mc.player, (ClientLevel) mc.player.level, hand, new BlockHitResult(
-            Vec3.upFromBottomCenterOf(playerPos, -0.5), Direction.UP, playerPos.below(), false
-        ));
-    }
-
-    private static Integer nextAutoSleep = 0;
-
-    private static void autoSleep() {
-        if (nextAutoSleep > 0) {
-            nextAutoSleep--;
-            return;
-        }
-
-        // 一秒に一回くらいのチェックでいいんじゃないでしょうか
-        nextAutoSleep = 20;
-
-        if (!BedBlock.canSetSpawn(mc.player.level)) return;
-        var playerPos = mc.player.getOnPos();
-        if (mc.player.isSleeping()) return;
-        mc.player.level.updateSkyBrightness();
-        if (mc.player.level.getSkyDarken() < 4) return;
-
-        for (int x = playerPos.getX() - 3; x <= playerPos.getX() + 3; x++) {
-            for (int y = playerPos.getY() - 2; y <= playerPos.getY() + 2; y++) {
-                for (int z = playerPos.getZ() - 3; z <= playerPos.getZ() + 3; z++) {
-                    var pos = new BlockPos(x, y, z);
-                    var blockState = mc.player.level.getBlockState(pos);
-                    if (!(blockState.getBlock() instanceof BedBlock)) continue;
-                    var result = mc.gameMode.useItemOn(
-                        mc.player,
-                        (ClientLevel) mc.player.level,
-                        InteractionHand.MAIN_HAND,
-                        new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false)
-                    );
-                    return;
-                }
+        var stream = BlockPos.stream(targetedBlockPosition.add(-1, 0, -1), targetedBlockPosition.add(1, 0, 1));
+        for (BlockPos pos : (Iterable<BlockPos>) stream::iterator) {
+            var state = client.world.getBlockState(pos);
+            var block = state.getBlock();
+            if (
+                block instanceof CropBlock cropBlock
+                && cropBlock == destBlock
+                && cropBlock.isMature(state)
+            ) {
+                client.interactionManager.attackBlock(pos, Direction.UP);
+                client.interactionManager.interactBlock(client.player, hand, new BlockHitResult(
+                    Vec3d.ofCenter(pos), Direction.UP,
+                    pos.add(0, -1, 0), false
+                ));
+                break;
             }
         }
     }

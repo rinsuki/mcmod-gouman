@@ -102,11 +102,18 @@ public class GoumanMod implements ClientModInitializer {
             }
         );
 
+        HostileEntity mostNearestEntity = null;
+        var mostNearestEntityDistance = Double.MAX_VALUE;
         for (var entity : entities) {
-            client.interactionManager.attackEntity(client.player, entity);
-            client.player.attack(entity);
-            break;
+            var distance = client.player.distanceTo(entity);
+            if (distance < mostNearestEntityDistance) {
+                mostNearestEntity = entity;
+                mostNearestEntityDistance = distance;
+            }
         }
+        if (mostNearestEntity == null) return;
+        client.interactionManager.attackEntity(client.player, mostNearestEntity);
+        client.player.attack(mostNearestEntity);
     }
 
     private static @Nullable Hand findSpecifiedItemFromBothHand(MinecraftClient client, Item item) {

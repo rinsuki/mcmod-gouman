@@ -74,6 +74,7 @@ public class GoumanMod implements ClientModInitializer {
         seedUekae(client, Blocks.WHEAT, Items.WHEAT_SEEDS);
         seedUekae(client, Blocks.BEETROOTS, Items.BEETROOT_SEEDS);
         seedUekae(client, Blocks.CARROTS, Items.CARROT);
+        seedUekae(client, Blocks.POTATOES, Items.POTATO);
     }
 
     private static void autoAttack(MinecraftClient client) {

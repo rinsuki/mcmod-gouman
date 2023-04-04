@@ -150,19 +150,9 @@ public class GoumanMod implements ClientModInitializer {
     private static void seedUekae(MinecraftClient client, Block destBlock, Item seedItem) {
         var hand = findSpecifiedItemFromBothHand(client, seedItem);
         if (hand == null) return;
+        var currentPosition = client.player.getBlockPos();
 
-        @Nullable BlockPos targetedBlockPosition = null;
-
-        if (client.crosshairTarget instanceof BlockHitResult blockHitResult) {
-            targetedBlockPosition = blockHitResult.getBlockPos();
-        }
-
-        if (targetedBlockPosition == null) return;
-
-        BlockState blockState = client.world.getBlockState(targetedBlockPosition);
-        if (blockState.getBlock() != destBlock) return;
-        
-        var stream = BlockPos.stream(targetedBlockPosition.add(-1, 0, -1), targetedBlockPosition.add(1, 0, 1));
+        var stream = BlockPos.stream(currentPosition.add(-1, 1, -1), currentPosition.add(1, -1, 1));
         for (BlockPos pos : (Iterable<BlockPos>) stream::iterator) {
             var state = client.world.getBlockState(pos);
             var block = state.getBlock();

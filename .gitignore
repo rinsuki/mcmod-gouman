@@ -6,3 +6,5 @@ build
 .gradle
 
 run
+
+deploy-to-local.sh

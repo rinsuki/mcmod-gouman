@@ -1,10 +1,15 @@
 package net.rinsuki.mcmods.gouman;
 
+import java.util.ArrayList;
+
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -14,6 +19,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.CropBlock;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.LivingEntity;
@@ -28,7 +34,12 @@ import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.mob.ZombieVillagerEntity;
 import net.minecraft.entity.mob.ZombifiedPiglinEntity;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -158,5 +169,60 @@ public class GoumanMod implements ClientModInitializer {
                 break;
             }
         }
+    }
+
+    public static void onMainHandToolWasBroken(ClientPlayerEntity player) {
+        var screenHandler = player.currentScreenHandler;
+        var slots = screenHandler.slots;
+        var currentSlot = -1;
+        // 1. まずは現在のスロットを探す
+        for (var i = 0; i < slots.size(); i++) {
+            var slot = slots.get(i);
+            if (slot.getStack() == player.getMainHandStack()) {
+                currentSlot = i;
+                break;
+            }
+        }
+        var currentItemStack = slots.get(currentSlot).getStack();
+
+        if (currentSlot < 0) {
+            LOGGER.info("failed to find current slot");
+            return;
+        }
+
+        // 2. 同じアイテムのスロットを探す
+        for (var slotId=0; slotId < slots.size(); slotId++) {
+            var slot = slots.get(slotId);
+            var slotItemStack = slot.getStack();
+            if (slotItemStack == currentItemStack) continue;
+            if (currentItemStack.getItem() != slotItemStack.getItem()) continue;
+            if (currentItemStack.getDamage() >= currentItemStack.getMaxDamage()) continue;
+            if (slotItemStack.hasEnchantments()) continue;
+            if (slotItemStack.hasCustomName()) continue;
+            LOGGER.info("Swap with slot {}", slotId);
+            player.sendMessage(Text.of("傲慢: ツールが壊れたので同等のものと交換しました"));
+            clickSlot(player, slotId);
+            clickSlot(player, currentSlot);
+            break;
+        }
+    }
+
+    public static void clickSlot(ClientPlayerEntity player, int slotId) {
+        var screenHandler = player.currentScreenHandler;
+        var slots = screenHandler.slots;
+        ArrayList<ItemStack> list = Lists.newArrayListWithCapacity(slotId);
+        for (Slot s : slots) {
+            list.add(s.getStack().copy());
+        }
+        screenHandler.onSlotClick(slotId, 0, SlotActionType.PICKUP, player);
+        var int2ObjectMap = new Int2ObjectOpenHashMap<ItemStack>();
+        for (int i = 0; i < slots.size(); i++) {
+            if (ItemStack.areEqual(slots.get(i).getStack(), list.get(i))) continue;
+            int2ObjectMap.put(i, list.get(i));
+        }
+        player.networkHandler.sendPacket(new ClickSlotC2SPacket(
+            screenHandler.syncId, screenHandler.getRevision(),
+            slotId, 0, SlotActionType.PICKUP, slots.get(slotId).getStack().copy(), int2ObjectMap
+        ));
     }
 }

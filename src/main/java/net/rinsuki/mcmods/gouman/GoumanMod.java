@@ -82,10 +82,20 @@ public class GoumanMod implements ClientModInitializer {
         }
         if (!enabled) return;
         autoAttack(client);
-        seedUekae(client, Blocks.WHEAT, Items.WHEAT_SEEDS);
-        seedUekae(client, Blocks.BEETROOTS, Items.BEETROOT_SEEDS);
-        seedUekae(client, Blocks.CARROTS, Items.CARROT);
-        seedUekae(client, Blocks.POTATOES, Items.POTATO);
+        var haveEmptySlot = false;
+        for (var i=0; i<client.player.getInventory().main.size(); i++) {
+            var itemStack = client.player.getInventory().main.get(i);
+            if (itemStack.getItem() == Items.AIR) {
+                haveEmptySlot = true;
+                break;
+            }
+        }
+        if (haveEmptySlot) {
+            seedUekae(client, Blocks.WHEAT, Items.WHEAT_SEEDS);
+            seedUekae(client, Blocks.BEETROOTS, Items.BEETROOT_SEEDS);
+            seedUekae(client, Blocks.CARROTS, Items.CARROT);
+            seedUekae(client, Blocks.POTATOES, Items.POTATO);
+        }
     }
 
     private static void autoAttack(MinecraftClient client) {

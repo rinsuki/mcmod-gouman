@@ -2,8 +2,8 @@
     "schemaVersion": 1,
     "id": "gouman",
     "name": "Gouman MOD",
-    "version": "2.1.0",
-    "description": "Gouman MOD for Fabric + MC 1.19.4",
+    "version": "3.00",
+    "description": "Gouman MOD for Fabric + MC 1.21.8",
     "authors": ["rinsuki"],
     "contact": {
         "homepage": "https://github.com/rinsuki/mcmod-gouman",
@@ -20,9 +20,9 @@
         "gouman.mixins.json"
     ],
     "depends": {
-        "java": ">=17",
-        "minecraft": ">=1.19.4",
+        "java": ">=21",
+        "minecraft": ">=1.21.8",
         "fabric-api": "*",
-        "fabricloader": ">=0.14.17"
+        "fabricloader": ">=0.16.14"
     }
 }

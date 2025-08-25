@@ -28,6 +28,8 @@ import net.minecraft.entity.mob.ZombieVillagerEntity;
 import net.minecraft.entity.mob.ZombifiedPiglinEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
+import net.minecraft.entity.vehicle.BoatEntity;
+import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -98,6 +100,11 @@ public class GoumanMod implements ClientModInitializer {
                 if (!(entity instanceof LivingEntity)) return false;
                 if (!entity.isAlive()) return false;
                 if (!entity.isAttackable()) return false;
+                // 名札が付いている、またはボート/トロッコに乗っている場合は対象外
+                if (entity.hasCustomName()) return false;
+                var vehicle = entity.getVehicle();
+                if (vehicle instanceof BoatEntity) return false;
+                if (vehicle instanceof AbstractMinecartEntity) return false;
                 if (entity instanceof ZombifiedPiglinEntity) return false; // 敵対されないように
                 if (entity instanceof ZombieVillagerEntity) return false;
 

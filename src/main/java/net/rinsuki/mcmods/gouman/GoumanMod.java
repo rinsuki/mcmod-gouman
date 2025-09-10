@@ -26,6 +26,7 @@ import net.minecraft.entity.mob.WitchEntity;
 import net.minecraft.entity.mob.ZombieEntity;
 import net.minecraft.entity.mob.ZombieVillagerEntity;
 import net.minecraft.entity.mob.ZombifiedPiglinEntity;
+import net.minecraft.entity.passive.ArmadilloEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.entity.vehicle.BoatEntity;
@@ -36,12 +37,18 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 public class GoumanMod implements ClientModInitializer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("gouman");
     private static boolean enabled = false;
     private static KeyBinding keyToggle;
+    private static long lastArmadilloFeedTick = 0;
+    private static final long ARMADILLO_RETRY_TICKS = 6000; // 5 minutes
+    private static final Map<Integer, Long> armadilloTriedAt = new HashMap<>(); // entityId -> worldTime
 
     @Override
     public void onInitializeClient() {
@@ -72,6 +79,7 @@ public class GoumanMod implements ClientModInitializer {
         }
         if (!enabled) return;
         autoAttack(client);
+        feedArmadilloIfPossible(client);
         var haveEmptySlot = false;
         var mainStack = client.player.getInventory().getMainStacks();
         for (var i=0; i<mainStack.size(); i++) {
@@ -131,6 +139,59 @@ public class GoumanMod implements ClientModInitializer {
         if (mostNearestEntity == null) return;
         client.interactionManager.attackEntity(client.player, mostNearestEntity);
         client.player.attack(mostNearestEntity);
+    }
+
+    private static void feedArmadilloIfPossible(MinecraftClient client) {
+        // 手に蜘蛛の目を持っていない場合は何もしない
+        var hand = findSpecifiedItemFromBothHand(client, Items.SPIDER_EYE);
+        if (hand == null) return;
+
+        // 連打しすぎ防止のため、一定間隔でのみ試行
+        long now = client.world.getTime();
+        if (now - lastArmadilloFeedTick < 10) return; // 約0.5秒間隔
+
+        // 古い記録のクリーンアップ
+        if (!armadilloTriedAt.isEmpty()) {
+            Iterator<Map.Entry<Integer, Long>> it = armadilloTriedAt.entrySet().iterator();
+            while (it.hasNext()) {
+                var e = it.next();
+                if (now - e.getValue() >= ARMADILLO_RETRY_TICKS) {
+                    it.remove();
+                }
+            }
+        }
+
+        var entities = client.player.getWorld().getEntitiesByClass(
+            ArmadilloEntity.class,
+            client.player.getBoundingBox().expand(2.5),
+            (entity) -> {
+                if (!entity.isAlive()) return false;
+                // 成体のみ対象
+                if (entity.isBaby()) return false;
+                return true;
+            }
+        );
+
+        ArmadilloEntity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+        for (var e : entities) {
+            // 5分リトライ禁止（同一エンティティID）
+            int id = e.getId();
+            Long triedAt = armadilloTriedAt.get(id);
+            if (triedAt != null && now - triedAt < ARMADILLO_RETRY_TICKS) continue;
+
+            double d = client.player.distanceTo(e);
+            if (d < nearestDist) {
+                nearest = e;
+                nearestDist = d;
+            }
+        }
+        if (nearest == null) return;
+
+        // 近くの成体アルマジロに蜘蛛の目を与える
+        client.interactionManager.interactEntity(client.player, nearest, hand);
+        lastArmadilloFeedTick = now;
+        armadilloTriedAt.put(nearest.getId(), now);
     }
 
     private static @Nullable Hand findSpecifiedItemFromBothHand(MinecraftClient client, Item item) {
